@@ -328,7 +328,7 @@ def letter_test_grid(c: Cipher, l: chr) -> str:  # noqa ignore short variable na
 
 
 @click.command()
-@click.argument("text", nargs=-1)
+@click.argument("text", type=click.File(), nargs=1)
 @click.option(
     "-k",
     "--layout",
@@ -339,21 +339,126 @@ def letter_test_grid(c: Cipher, l: chr) -> str:  # noqa ignore short variable na
 
         Technically, this is the name of a file in the layouts directory.
 
-        The -k shortname stands for keyboard.
+        The -k shortname stands for keyboard and defaults to QWERTY.
         """,
 )
-def shark(text: str, layout: str = "QWERTY"):
-    """
-    Runs TEXT through the shark cipher
+@click.option(
+    "--only-one",
+    is_flag=True,
+    help="""
+        Limit the output to a single substitution.
+        If this flag is not set, then a grid of possibilities will be displayed
+        (setting this flag negates the usefulness of setting --barrier).
+        """,
+)
+@click.option(
+    "-sep",
+    "--barrier",
+    type=click.STRING,
+    default="-",
+    help="""
+        Separate input from output with the character(s) supplied here.  
+        Default is a fence of hyphens.
+        """,
+)
+@click.option(
+    "--random/--fixed",
+    "rnd",
+    default=True,
+    help="""
+        Pass --fixed to always order the output possibilities in a consistent order.
+        Otherwise, the possible substitutions for each letter are presented in a random order.
+        If the step parameter is changed with random output order, the results may be
+        less random than expected.
+        """,
+)
+@click.option(
+    "--direction",
+    "-j",  # stands for jump
+    "skip",
+    type=click.INT,
+    default=1,
+    help="""
+        How many positions to rotate between each subsequent letter.
+        Negative values move clockwise and positive count clockwise.
+        This one in particular will reduce randomness if it is set to
+        values other than 1 or -1.
 
-    To read a file into TEXT, something similar to the following FISh command
-    should be used.
+        A value of 0 here where --fixed is true will return the key that
+        is at a constant offset from the right.
 
-    ./cipher.py (cat layouts/test-alphabet) [OPTIONS]
+        (The j stands for jump)
+        """,
+)
+@click.option(
+    "--offset",
+    "--start",
+    "start",
+    type=click.INT,
+    default=0,
+    help="""
+        When --fixed is set, this controls the offset of the first
+        letter of the output by moving it n spaces from the key directly
+        to the right.  Use a negative number to move clockwise or, to move
+        counter-clockwise, use a positive number.
+        0 starts directly to the right.
+        """,
+)
+@click.option(
+    "--strip/--include",
+    default=True,
+    help="""
+        Strip out [default] or pass through characters that are not in the cipher.
+        Passing them through provides hints that make manual decoding easier. 
+        """,
+)
+# These are placed at the end of the options so the --help output is prettier
+@click.option(
+    "--encrypt",
+    "direction",
+    flag_value="E",
+    help="""Generate possibilities that can decipher to TEXT""",
+)
+@click.option(
+    "--reversible",
+    "direction",
+    flag_value="R",
+    default=True,
+    help="""[DEFAULT] Generate fully-reversible options""",
+)
+@click.option(
+    "--decipher",
+    "direction",
+    flag_value="D",
+    help="""Display possible cleartext letters for TEXT""",
+)
+def shark(
+    text,
+    layout: str = "QWERTY",
+    only_one: bool = False,
+    barrier: str = "*",
+    direction: chr = "R",
+    rnd: bool = True,
+    skip: int = 1,
+    start: int = 0,
+    strip: bool = False,
+):
     """
-    if not (txt := " ".join(text).strip()):
-        return
+    Runs TEXT through the shark cipher and displays the result to stdout
+
+    To read from stdin rather than a specific TEXT file, use - for TEXT.
+
+    For specific recipes on CLI usage, see the readme.
+    """
     c = Cipher(layout)
+    for line in text:
+        p(
+            display_possibilities(
+                c.encode_text(line, strip, direction, rnd, start=start, jump=skip),
+                only_one,
+                barrier,
+            )
+        )
 
 
 if __name__ == "__main__":
