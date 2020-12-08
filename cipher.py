@@ -49,6 +49,9 @@ class Keycap:
     def __repr__(self) -> str:
         return self.name if not self.blank else "∞"
 
+    def __str__(self) -> str:
+        return self.name
+
     @property
     def NE(self) -> "Keycap":
         return self.up.right
@@ -98,9 +101,45 @@ class Keycap:
         self.surround = [k for k in self.deciphers_to if k in self.encrypts_to]
         return len(self.deciphers_to) - len(self.surround)
 
+    def draw(self, out: bool = True) -> "List[str]":
+        o: List[str] = []
+
+        def make_row(
+            keys: "List[Union[Keycap, chr]]", substitutes: str, connect: chr = "─"
+        ) -> str:
+            x: List[chr] = []
+            for i, key in enumerate(keys):
+                if str(key).strip():
+                    x.append(str(key))
+                else:
+                    x.append(substitutes[i])
+            o.append((connect * 2).join(x))
+            return o[-1]
+
+        bnk = "│ │"
+        mbr = (bnk, "   ", " ")
+
+        make_row([self.NW, self.up, self.NE], "┌─┐")
+        make_row(*mbr)
+        make_row([self.left, self, self.right], bnk, " ")
+        make_row(*mbr)
+        make_row([self.SW, self.down, self.SE], "└─┘")
+
+        if out:
+            p("\n".join(o))
+        return o
+
 
 def cap_list_str(surrounding: List[Keycap]) -> str:
     return "".join(str(k) for k in surrounding)
+
+
+# If your layout has its "blank" keys to the left,
+# add it to this list
+# Layout names (including filenames) should be lower-case
+REVERSE_LAYOUTS: List[str] = [
+    "dvorak",
+]
 
 
 class Cipher:
@@ -110,7 +149,7 @@ class Cipher:
         layout = layout.lower().strip()
         if not layout:
             layout = "qwerty"
-        if reverse is None and layout == "dvorak":
+        if reverse is None and layout in REVERSE_LAYOUTS:
             reverse = True  # the symbol keys are on the left on Dvorak
 
         # Load the layout
@@ -177,6 +216,12 @@ class Cipher:
                 k = self.grid[r][c]
                 u = self.grid[up][c]
                 d = self.grid[down][c]
+
+                # fix left & right in reversed layouts
+                if reverse:
+                    tmp: Keycap = k.left
+                    k.left = k.right
+                    k.right = tmp
 
                 k.up = u
                 k.down = d
@@ -273,6 +318,20 @@ class Cipher:
             )
             for offset in range(limit_possibilities)
         ]
+
+    def draw_keyboard(self) -> None:
+        """
+        Prints the keyboard layout to stdout
+        """
+        # Must print row-by-row
+        for row in self.grid:
+            tmp: List[List[str]] = [[], [], [], [], []]
+            for letter in row:
+                for i, o in enumerate(letter.draw(False)):
+                    tmp[i].append(o)
+            for line in tmp:
+                p("  ".join(line))
+            p("\n")
 
 
 def display_possibilities(
